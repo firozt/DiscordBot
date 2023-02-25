@@ -16,17 +16,45 @@ def run_bot():
     @bot.event
     async def on_ready():
         print('bot is running')
+        
     load_dotenv()
     bot.run(os.getenv('TOKEN'))
-
-
 
 @bot.command()
 async def stop(ctx):
     await sys.exit(0)
 
 @bot.command()
-async def winrate(ctx,summoner_name ,region='euw1'):
+async def winrate2(summoner1,summoner2):
+    """Gets winrate of two people and compares
+
+    Args:
+        summoner1 (str): summoner 1
+        summoner2 (str): summoner 2
+
+    Returns:
+        None: Outputs to discord who has the higher winrate
+    """
+    
+    # TODO: finish
+
+@bot.command()
+async def winrate(ctx,summoner_name, num_of_match = 20, region='euw1'):
+    """ input summoner name and returns winrate of n matches
+
+    Args:
+        ctx (message): discord context variable
+        summoner_name (str): username of the summoner
+        num_of_match (int) : (defaults to 20) how far to go back
+        region (str, optional): region of the. Defaults to 'euw1'.
+    """
+    winrate = await getWinrate(summoner_name, num_of_match, region)
+    if winrate < 0:
+        await ctx.send(f'Error too many requests sent')
+        return
+    await ctx.send(f"{summoner_name}'s winrate is {winrate:.2f}% over {num_of_match} games")
+    
+async def getWinrate(summoner_name, num_of_match, region ='euw1'):
     """gets the winrate of a given player in a given region
 
     Args:
@@ -34,24 +62,19 @@ async def winrate(ctx,summoner_name ,region='euw1'):
         summoner_name (str): username of the summoner
         region (str, optional): region of the. Defaults to 'euw1'.
     """
-    
+      
     PUUID = await getPUUID(summoner_name,region=region)
-    if PUUID == -1:
-        await ctx.send(f'Invalid username or region')
-        return
-    matchIdHistory = await getMatchIDHistory(region,PUUID,start_index=0,number_of_matches=20)
-    if  matchIdHistory == -1:
-        await ctx.send(f'Error getting match history')
-        return
+    if PUUID == -1: return -1
+    matchIdHistory = await getMatchIDHistory(region,PUUID,start_index=0,number_of_matches=num_of_match)
+    if  matchIdHistory == -1: return matchIdHistory
 
     total_games, won_games = 0, 0
     for matchID in matchIdHistory:
         total_games += 1
         if await wonGame(region, matchID, PUUID):
             won_games += 1
-    winrate = (won_games / total_games) * 100
-    await ctx.send(f'Your winrate is {winrate:.2f}')
-    
+    return (won_games / total_games) * 100
+
 async def getPUUID(summoner_name,region) -> str:
     """gets PUUID given a league username and region
 
