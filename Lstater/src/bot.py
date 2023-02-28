@@ -4,6 +4,12 @@ from discord.ext import commands
 import requests
 from dotenv import load_dotenv
 
+players = [
+    'roooge',
+    'molgera12',
+    'newtronimus',
+]
+
 regions = {
     'euw1':'europe',
     'na1':'north-america'
@@ -24,19 +30,25 @@ def run_bot():
 async def stop(ctx):
     await sys.exit(0)
 
+
 @bot.command()
-async def winrate2(summoner1,summoner2):
-    """Gets winrate of two people and compares
+async def leaderboard(ctx, fileter='winrate'):
+    # error testing
+    if filter not in ['winrate', 'kda']:
+        ctx.send(f'{fileter} is not a valid filter!')
+        return
+    leaderboards = []
+    if filter == 'winrate':
+        player_list = filterWinrate(leaderboards)
 
-    Args:
-        summoner1 (str): summoner 1
-        summoner2 (str): summoner 2
 
-    Returns:
-        None: Outputs to discord who has the higher winrate
-    """
+
+def filterWinrate(leaderboards) -> list[str]:
+    winrate = []
+    for player in players:
+        winrate.append((player, getWinrate(player,5)))
+    return winrate.sorted(key=lambda x: x[1])
     
-    # TODO: finish
 
 @bot.command()
 async def winrate(ctx,summoner_name, num_of_match = 20, region='euw1'):
