@@ -1,7 +1,6 @@
-import sys, os
+import os , requests
 import discord
 from discord.ext import commands
-import requests
 from dotenv import load_dotenv
 import Cache
 
@@ -14,6 +13,7 @@ players = [
     'roooge',
     'molgera12',
     'newtronimus',
+    'kayj0'
 ]
 
 # v5 api uses continental names whilst v4 uses the old server system
@@ -33,17 +33,30 @@ def run_bot():
         
     load_dotenv()
     bot.run(os.getenv('TOKEN'))
+
+async def loading(ctx):
+    await ctx.send('loading...')
     
+async def finished_loading(ctx):
+    async for m in ctx.channel.history(limit=200):
+        if m.author == bot.user and m.content == 'loading...':
+            last_message = m
+            await last_message.delete()
+            return        
     
+@bot.command()
+async def cache(ctx):
+    offload()
 
 @bot.command()
-async def stop(ctx):
-    await sys.exit(0)
+async def load(ctx):
+    load()
 
 
 @bot.command()
 async def leaderboard(ctx, filter='winrate'):
     NUM_OF_GAMES = 4
+    await loading(ctx)
     # error testing
     if filter not in ['winrate', 'kda']:
         await ctx.send(f'{filter} is not a valid filter!')
@@ -53,17 +66,17 @@ async def leaderboard(ctx, filter='winrate'):
         player_list = await filterWinrate(NUM_OF_GAMES)
     elif filter =='kda':
         player_list = filterKDA()
-    
+
     i = 1
     medals = {
-        1 : ':first_place',
-        2 : ':second_place',
-        3 : ':third_place',
+        1 : ':first_place:',
+        2 : ':second_place:',
+        3 : ':third_place:',
     }
+    await finished_loading(ctx)
     await ctx.send(f'Leaderboards for winrates over {NUM_OF_GAMES} games:\n ')
     for player in player_list:
-        out = f'{i}) {player[0]} | winrate: {player[1]}%'
-        if i in medals: out += f' {medals[i]}'
+        out = f'{i}) {player[0]} | winrate: {player[1]}% {str(medals[i]) if i in medals else ""}'
         await ctx.send(out)
         i += 1
     
@@ -80,16 +93,24 @@ async def winrate(ctx,summoner_name, num_of_match = 20, region='euw1'):
         num_of_match (int) : (defaults to 20) how far to go back
         region (str, optional): region of the. Defaults to 'euw1'.
     """
+    await loading(ctx)
     winrate = await getWinrate(summoner_name, num_of_match, region)
     if winrate < 0:
         await ctx.send(f'Error too many requests sent')
         return
+    await finished_loading(ctx)
     await ctx.send(f"{summoner_name}'s winrate is {winrate:.2f}% over {num_of_match} games")
     request_logs()
     
-def filterKDA():
-    pass
-
+async def filterKDA(summoner_name, region):
+    kda = []
+    for player in players:
+        kda.append((player, await getKDA(player, region)))
+    
+async def getKDA(name):
+    PUUID = await getPUUID(name)
+    if PUUID == -1: return -1
+    matchHistory = getMatchIDHistory(region,PUUID)
 
 async def filterWinrate(NUM_OF_GAMES) -> list[str]:
     """Returns sorted list of names by winrates
@@ -213,7 +234,7 @@ async def getGameData(summoner_name, region, match_id, PUUID) -> dict:
         'won' : bool(response['win']),
     }
     
-    cache_game(summoner_name,match_id,match['kda'],match['won'])
+    cache_game(match_id,summoner_name,match['kda'],match['won'])
     increaseReq()
 
     return match
@@ -225,7 +246,7 @@ async def wonGame(summoner_name, region, match_id, PUUID) -> bool:
 
 # CACHNING FUNCTIONS
 
-def cache_game(name, match_id, kda, won) -> None:
+def cache_game(match_id,name, kda, won) -> None:
     if name not in local_cache:
         local_cache[name] = Cache.Cache()
         print(f'cache created for {name}')
@@ -233,7 +254,23 @@ def cache_game(name, match_id, kda, won) -> None:
     
 def cache_player(name, puuid):
     local_cache[name] = Cache.Cache(puuid)
+
     
+def offload() -> None:
+    json = '{'
+    for player in players:
+        json += f'"{player}" : {Cache.cacheToJson(local_cache[player])},'
+    json = json[:-1] + '}'
+    with open('../request_cache.json', 'w') as f:
+        f.write(json)
+    f.close()
+    
+def load() -> None:
+    data = ''
+    with open('../request_cache.json', 'r') as f:
+        for line in f:
+            data += f.readline()
+    Cache.jsonToCache(data)
     
 # DEBUGGING
 

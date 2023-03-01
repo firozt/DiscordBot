@@ -1,0 +1,102 @@
+{
+    "roooge": {
+        "puuid": "47niA8XK0DxTLS4maOmq_qo7KIsWGoIQdxvrSqgeAJybcWr0ccWskCSUQQmdWwnFXNmApxlKX_7o0w",
+        "cache_stack": [
+            {
+                "match_id": "EUW1_6292968429",
+                "kda": 0.6666666666666666,
+                "won": false
+            },
+            {
+                "match_id": "EUW1_6278594402",
+                "kda": 0.9,
+                "won": false
+            },
+            {
+                "match_id": "EUW1_6278538080",
+                "kda": 0.8571428571428571,
+                "won": false
+            },
+            {
+                "match_id": "EUW1_6278473947",
+                "kda": 1.6363636363636365,
+                "won": false
+            }
+        ]
+    },
+    "molgera12": {
+        "puuid": "Zmve6dJPtGZ9dJ2uX3vXnY9UEmDitJ1Fbhs1Uti2FccZUeuXjj4timYyd-Sy2j4baSjq35u2rrNnmA",
+        "cache_stack": [
+            {
+                "match_id": "EUW1_6291892089",
+                "kda": 0.6,
+                "won": false
+            },
+            {
+                "match_id": "EUW1_6291614115",
+                "kda": 1.5555555555555556,
+                "won": false
+            },
+            {
+                "match_id": "EUW1_6291595518",
+                "kda": 2.75,
+                "won": true
+            },
+            {
+                "match_id": "EUW1_6290197108",
+                "kda": 1.8888888888888888,
+                "won": false
+            }
+        ]
+    },
+    "newtronimus": {
+        "puuid": "FkfsCSPUuONLHmBHM1GCFd4ccjefo_dhHHkk2Q2Qi1Qo_msqNiZWBLdHcGFEqT0f4xeYoyhtbn-bMQ",
+        "cache_stack": [
+            {
+                "match_id": "EUW1_6295743892",
+                "kda": 0.6666666666666666,
+                "won": false
+            },
+            {
+                "match_id": "EUW1_6295704049",
+                "kda": 5.75,
+                "won": true
+            },
+            {
+                "match_id": "EUW1_6294765801",
+                "kda": 1.8888888888888888,
+                "won": false
+            },
+            {
+                "match_id": "EUW1_6294710659",
+                "kda": 2.4,
+                "won": true
+            }
+        ]
+    },
+    "kayj0": {
+        "puuid": "QIAN0PHOVLZDmyinWljJtuiwUIGqVbpxaPk5WFPIVxBmJxVbMn0NblBkQdyT5ZkpbuUV5C7lWI2pNg",
+        "cache_stack": [
+            {
+                "match_id": "EUW1_6296535988",
+                "kda": 3.0,
+                "won": false
+            },
+            {
+                "match_id": "EUW1_6296513533",
+                "kda": 1.2,
+                "won": false
+            },
+            {
+                "match_id": "EUW1_6296454689",
+                "kda": 1.1538461538461537,
+                "won": false
+            },
+            {
+                "match_id": "EUW1_6293965258",
+                "kda": 0.5384615384615384,
+                "won": false
+            }
+        ]
+    }
+}
