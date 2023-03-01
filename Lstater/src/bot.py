@@ -3,6 +3,12 @@ import discord
 from discord.ext import commands
 import requests
 from dotenv import load_dotenv
+import Cache
+
+local_cache = {} # stores name : cache object with users cached values
+
+NUM_OF_REQUEST = 0
+
 
 players = [
     'roooge',
@@ -10,6 +16,8 @@ players = [
     'newtronimus',
 ]
 
+# v5 api uses continental names whilst v4 uses the old server system
+# this dictionary will help convert region names from the v4 system to v5
 regions = {
     'euw1':'europe',
     'na1':'north-america'
@@ -25,6 +33,8 @@ def run_bot():
         
     load_dotenv()
     bot.run(os.getenv('TOKEN'))
+    
+    
 
 @bot.command()
 async def stop(ctx):
@@ -32,22 +42,32 @@ async def stop(ctx):
 
 
 @bot.command()
-async def leaderboard(ctx, fileter='winrate'):
+async def leaderboard(ctx, filter='winrate'):
+    NUM_OF_GAMES = 4
     # error testing
     if filter not in ['winrate', 'kda']:
-        ctx.send(f'{fileter} is not a valid filter!')
+        await ctx.send(f'{filter} is not a valid filter!')
         return
-    leaderboards = []
+    player_list = []
     if filter == 'winrate':
-        player_list = filterWinrate(leaderboards)
-
-
-
-def filterWinrate(leaderboards) -> list[str]:
-    winrate = []
-    for player in players:
-        winrate.append((player, getWinrate(player,5)))
-    return winrate.sorted(key=lambda x: x[1])
+        player_list = await filterWinrate(NUM_OF_GAMES)
+    elif filter =='kda':
+        player_list = filterKDA()
+    
+    i = 1
+    medals = {
+        1 : ':first_place',
+        2 : ':second_place',
+        3 : ':third_place',
+    }
+    await ctx.send(f'Leaderboards for winrates over {NUM_OF_GAMES} games:\n ')
+    for player in player_list:
+        out = f'{i}) {player[0]} | winrate: {player[1]}%'
+        if i in medals: out += f' {medals[i]}'
+        await ctx.send(out)
+        i += 1
+    
+    request_logs()
     
 
 @bot.command()
@@ -65,6 +85,22 @@ async def winrate(ctx,summoner_name, num_of_match = 20, region='euw1'):
         await ctx.send(f'Error too many requests sent')
         return
     await ctx.send(f"{summoner_name}'s winrate is {winrate:.2f}% over {num_of_match} games")
+    request_logs()
+    
+def filterKDA():
+    pass
+
+
+async def filterWinrate(NUM_OF_GAMES) -> list[str]:
+    """Returns sorted list of names by winrates
+
+    Returns:
+        list[str]: list of sorted names by winrate
+    """
+    winrate = []
+    for player in players:
+        winrate.append((player, await getWinrate(player,NUM_OF_GAMES)))
+    return sorted(winrate, key=lambda x: x[1], reverse=True)
     
 async def getWinrate(summoner_name, num_of_match, region ='euw1'):
     """gets the winrate of a given player in a given region
@@ -75,7 +111,7 @@ async def getWinrate(summoner_name, num_of_match, region ='euw1'):
         region (str, optional): region of the. Defaults to 'euw1'.
     """
       
-    PUUID = await getPUUID(summoner_name,region=region)
+    PUUID = await getPUUID(summoner_name,region)
     if PUUID == -1: return -1
     matchIdHistory = await getMatchIDHistory(region,PUUID,start_index=0,number_of_matches=num_of_match)
     if  matchIdHistory == -1: return matchIdHistory
@@ -83,7 +119,7 @@ async def getWinrate(summoner_name, num_of_match, region ='euw1'):
     total_games, won_games = 0, 0
     for matchID in matchIdHistory:
         total_games += 1
-        if await wonGame(region, matchID, PUUID):
+        if await wonGame(summoner_name,region, matchID, PUUID):
             won_games += 1
     return (won_games / total_games) * 100
 
@@ -98,12 +134,25 @@ async def getPUUID(summoner_name,region) -> str:
         str: _description_
     """
     
+    # CHECK IF DATA IS IN CACHE
+    
+    if summoner_name in local_cache:
+        print(f'cache hit for {summoner_name}')
+        return local_cache[summoner_name].puuid
+        
+    
     request_url = f'https://{region}.api.riotgames.com/lol/summoner/v4/summoners/by-name/{summoner_name}?api_key={os.getenv("RIOT_API_KEY")}'
     response = requests.get(request_url)
+    
     if response.status_code != 200:
         return -1
     
-    return response.json()["puuid"]
+    puuid = response.json()["puuid"]
+    
+    # cache element
+    cache_player(summoner_name, puuid)
+    increaseReq()
+    return puuid
     
 async def getMatchIDHistory(region,PUUID,start_index,number_of_matches) -> list[str]:
     """Returns a players last n matchID's
@@ -122,28 +171,77 @@ async def getMatchIDHistory(region,PUUID,start_index,number_of_matches) -> list[
     response = requests.get(request_url)
     if str(response.status_code)[0] == '4':
         return -1
+    increaseReq()
     return response.json()
-    
-async def wonGame(region, match_id, PUUID) -> bool:
-    """Returns wether given a player and match if he won
+
+async def getGameData(summoner_name, region, match_id, PUUID) -> dict:
+    """Returns the match object containing info on the user
 
     Args:
+        summoner_name (str) : name of the user
         region (str): which riot server i.e euw1, na1
         match_id (str): id of match
         PUUID (str): riot account id
 
     Returns:
-        bool: true = won, false = lost
+       dict: kda -> str, won -> bool
     """
-
+    # check cache
+    if summoner_name in local_cache:
+        
+        cache_hit = local_cache[summoner_name].getFromCache(match_id)
+        if cache_hit:
+            
+            print(f'cache hit for match: {match_id} for user: {summoner_name}')
+            return Cache.cacheToJson(cache_hit)
+            
+    # request
+    
     request_url = f'https://{regions[region]}.api.riotgames.com/lol/match/v5/matches/{match_id}?api_key={os.getenv("RIOT_API_KEY")}'
     response = requests.get(request_url)
     if str(response.status_code)[0] == '4':
         return -1
-    user_stats = response.json()['info']['participants']
-
-    for user in user_stats:
+    
+    response = response.json()['info']['participants']
+    for user in response:
         if user['puuid'] == PUUID:
-            return user['win']
-    print('CAN NOT FIND USER IN MATCH')
-    sys.exit(1)
+            response = user
+            break
+        
+    match = {
+        'kda' : float(response['challenges']['kda']),
+        'won' : bool(response['win']),
+    }
+    
+    cache_game(summoner_name,match_id,match['kda'],match['won'])
+    increaseReq()
+
+    return match
+    
+async def wonGame(summoner_name, region, match_id, PUUID) -> bool:
+
+    match = await getGameData(summoner_name,region,match_id,PUUID)
+    return match['won']
+
+# CACHNING FUNCTIONS
+
+def cache_game(name, match_id, kda, won) -> None:
+    if name not in local_cache:
+        local_cache[name] = Cache.Cache()
+        print(f'cache created for {name}')
+    local_cache[name].addGameToCache(match_id,kda,won)
+    
+def cache_player(name, puuid):
+    local_cache[name] = Cache.Cache(puuid)
+    
+    
+# DEBUGGING
+
+def request_logs():
+    global NUM_OF_REQUEST
+    print(f'num of requests: {NUM_OF_REQUEST}')
+    NUM_OF_REQUEST = 0
+
+def increaseReq():
+    global NUM_OF_REQUEST
+    NUM_OF_REQUEST += 1
